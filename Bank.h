@@ -1,11 +1,10 @@
 /**  Do not modify this file  **/
-
 /*
  *  These functions do not provide any error checking.
  *  If an invalid input is supplied the behavior is
  *  undefined.
  */
-
+ 
 /*
  *  Intialize n bank accounts with IDs from 1 to n and values of 0.
  *  Input:  int n - Number of bank accounts, must be larger than 0
@@ -26,3 +25,8 @@ int read_account( int ID );
  *  Input:  int value - value to write to account
  */
 void write_account( int ID, int value);
+
+/*
+ * Deallocate the memory for bank accounts
+ */
+void free_accounts();

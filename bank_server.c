@@ -30,8 +30,12 @@ struct queue {
 };
 
 
+
+
+
 int main(int argc, char **argv){
 	char input [200];
+	 
 	 
 	if(argc != 4){
 	 printf("Not enough arguments\n");
@@ -42,9 +46,15 @@ int main(int argc, char **argv){
 	
 	printf("%d\n", r);
 	
+	int idCount = 1; 
 	
 	while(1){
+
+		
 		printf(">");
+		
+		
+		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
 		int len = strlen(input);
 		input[len-1] = '\0'; //assign the last element to be null
@@ -58,14 +68,29 @@ int main(int argc, char **argv){
 			part = strtok(NULL, " ");
 			parts[index] = NULL;
 		}
-		
-
-		
+	
+	
 		if(strcmp(parts[0], "END") == 0){
 		
 		//queue the rest of the commands before returning
 		
 		return 0; 
+		
+		}
+		
+		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
+			printf("%d\n", read_account(atoi(parts[1]))); //for debugging, prints account value
+			printf("ID %d\n", idCount);
+			idCount++;
+			
+			//output in the output file <idCount> BAL <balance>
+			
+		}
+		
+		
+		else{
+		
+			printf("Invalid command\n");
 		
 		}
 	
