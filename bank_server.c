@@ -36,7 +36,9 @@ struct queue {
 int main(int argc, char **argv){
 	char input [200];
 	 
-	 
+	FILE *retFile; //= fopen(argv[3], "w");
+	retFile = fopen(argv[3], "w");
+	
 	if(argc != 4){
 	 printf("Not enough arguments\n");
 	 return(0);
@@ -50,10 +52,7 @@ int main(int argc, char **argv){
 	
 	while(1){
 
-		
 		printf(">");
-		
-		
 		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
 		int len = strlen(input);
@@ -79,14 +78,25 @@ int main(int argc, char **argv){
 		}
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
+		
 			printf("%d\n", read_account(atoi(parts[1]))); //for debugging, prints account value
 			printf("ID %d\n", idCount);
 			idCount++;
 			
-			//output in the output file <idCount> BAL <balance>
+			flockfile(retFile); //lock the file
 			
+			//print to output file the following: <idCount> BAL <balance>
+			fprintf(retFile, "%d BAL %d\ns", idCount, read_account(atoi(parts[1])));
+			
+			funlockfile(retFile); //unlock the file
+							
 		}
 		
+		else if (strcmp(parts[0], "TRANS") == 0 && ){
+		
+		
+		
+		}
 		
 		else{
 		
@@ -97,6 +107,7 @@ int main(int argc, char **argv){
 		
 	}
 	
+	fclose(retFile);
 	
 	
 }
