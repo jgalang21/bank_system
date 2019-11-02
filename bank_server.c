@@ -39,9 +39,6 @@ struct queue {
 	struct timeval time_arrival, time_end; // arrival time and end time
 	struct job *next; // pointer to the next request**/
 	
-	
-
-struct job createJob(int id, int cid);
 
 
 /**
@@ -61,7 +58,7 @@ struct timeval time;
 
 
 int main(int argc, char **argv){
-	
+	int ts = 0;
 	queueList.num_jobs = 0; //initially set it to 0
 	queueList.head = NULL; //set head and tail to null
 	queueList.tail = NULL;
@@ -82,8 +79,8 @@ int main(int argc, char **argv){
 	**/
 	
 	if(argc != 4){
-	 printf("Not enough arguments\n");
-	 return(0);
+		 printf("Not enough arguments\n");
+		 return(0);
 	}
 	
 	int r = initialize_accounts(atoi(argv[1])); //initialize the accounts
@@ -101,9 +98,12 @@ int main(int argc, char **argv){
 	
 	}
 	**/
-	'
 	
-	//main should just put things in the queue
+	
+	//main should just put things in the queue, protect queue with mutexes, use a signal to whenever something gets added to the queue.
+	//worker should have two states: 1. waiting 2. stopping when it knows no more jobs are coming
+	
+	
 	
 	printf("%d\n", r);
 	
@@ -132,6 +132,13 @@ int main(int argc, char **argv){
 		
 		//queue the rest of the commands before returning
 		
+		int k = 0; 
+		
+		for(k = 0; k < queueList.num_jobs; k++){
+			printf("queue: %d\n", queueList.tail[k].request_ID);
+		}
+		
+		
 		return 0; 
 		
 		}
@@ -139,28 +146,59 @@ int main(int argc, char **argv){
 	
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
+		/**
+			struct job{
+	int request_ID;  // request ID assigned by the main thread
+	int check_acc_ID; // account ID for a CHECK request
+	struct trans *transactions; // array of transaction data
+	int num_trans; // number of accounts in this transaction
+	struct timeval time_arrival, time_end; // arrival time and end time
+	struct job *next; // pointer to the next request
+};**/
+		
 			printf("ID %d\n", idCount);
-			idCount++;
+			
+			
+			struct job toAdd; //initialize a job
+			toAdd.request_ID = idCount; //provide it's request ID
+			toAdd.check_acc_ID = read_account(atoi(parts[1]));
+			toAdd.time_arrival = time;	
+			toAdd.next = NULL;
+				
+			
+			//mutex lock will go here later	
+			if(queueList.tail == NULL){ //if the queue is empty
+				queueList.tail = &toAdd;	
+				printf("Next was null, so it's now the tail\n");
+			}	
+			
+			else {
+				struct job* current;
+				current = queueList.tail;
+				while(current != NULL){
+				 current = queueList.tail[ts].next;
+				}
+				printf("Got here\n");
+				
+				
+			
+			}
+				
 			
 			queueList.num_jobs++; //increase queue count jobs
 			
+			printf("Queue size: %d\n", queueList.num_jobs);
+			printf("CheckAccID: %d\n", toAdd.check_acc_ID);
+			printf("RequestID: %d\n", toAdd.request_ID);
 			
-			gettimeofday(&time, NULL);
-			printf("time is: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
-			/**
-			struct job task; //create a new job
+			idCount++;
 			
-			task.request_ID = idCount; 
-			task.check_acc_ID = atoi(parts[1]); 
-			task.time_arrival = time;
-			//printf("Start: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
+			//mutex unlock will go here later
 			
-			queueList.tail = task; 
-			**/
 			flockfile(retFile); //lock the file
 			
 			//print to output file the following: <idCount> BAL <balance>
-			fprintf(retFile, "%d BAL %d\ns", idCount, read_account(atoi(parts[1])));
+			fprintf(retFile, "%d BAL %d\n", idCount, read_account(atoi(parts[1])));
 			
 			funlockfile(retFile); //unlock the file
 
@@ -187,33 +225,16 @@ int main(int argc, char **argv){
 		
 	}
 	
+	
+	
+	
 	fclose(retFile);
 	
 }
 
-struct job createJob(int id, int cid){
 
-	struct job toRet; 
 
-	toRet.request_ID = id; 
-	toRet.check_acc_ID = cid; 
 	
-	return toRet;
-
-
-}
-
-
-	/**
-	int request_ID;  // request ID assigned by the main thread
-	int check_acc_ID; // account ID for a CHECK request
-	struct trans *transactions; // array of transaction data
-	int num_trans; // number of accounts in this transaction
-	struct timeval time_arrival, time_end; // arrival time and end time
-	struct job *next; // pointer to the next request
-		**/
-		
-//helper method that creates a job whenever a command is issued
 
 
 
