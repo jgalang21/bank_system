@@ -68,49 +68,21 @@ int main(int argc, char **argv){
 	FILE *retFile;
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
-	/**
-	pthread_t work_tid[atoi(argv[1])]; 
-	pthread_t com_tid;
-	
-	
-	pthread_cond_t work_cv[atoi(argv[1])]; //worker conditional variable
-	pthread_cond_t com_cv;  //command conditional variable
-	int thread_index[TOTAL_CONSUMER_THREADS];
-	**/
-	
+
 	if(argc != 4){
 		 printf("Not enough arguments\n");
 		 return(0);
 	}
 	
-	int r = initialize_accounts(atoi(argv[1])); //initialize the accounts
-	
-	/**
-	pthread_mutex_init(&mut, NULL);
-	pthread_cond_init(&worker, NULL);
-	pthread_cond_init(&command, NULL);
-	
-	pthread_create(&com_cv, NULL, command, NULL); //create command thread
-	int k = 0; 
-	
-	for(k = 0; k < atoi(argv[1]); k++){
-	pthread_create(&work_tid[k], NULL, worker, (void *) &thread_index[k]); 
-	
-	}
-	**/
-	
-	
 	//main should just put things in the queue, protect queue with mutexes, use a signal to whenever something gets added to the queue.
 	//worker should have two states: 1. waiting 2. stopping when it knows no more jobs are coming
 	
-	
-	
-	printf("%d\n", r);
-	
 	int idCount = 1; 
 	
+	initialize_accounts(atoi(argv[2]));
+	
 	while(1){
-
+		
 		printf(">");
 		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
@@ -133,10 +105,14 @@ int main(int argc, char **argv){
 		//queue the rest of the commands before returning
 		
 		int k = 0; 
-		
+		/**
 		for(k = 0; k < queueList.num_jobs; k++){
-			printf("queue: %d\n", queueList.tail[k].request_ID);
+			
+			printf("queue: %d\n",queueList.tail->next.request_ID);
 		}
+		**/
+		
+		
 		
 		
 		return 0; 
@@ -146,62 +122,45 @@ int main(int argc, char **argv){
 	
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
-		/**
-			struct job{
-	int request_ID;  // request ID assigned by the main thread
-	int check_acc_ID; // account ID for a CHECK request
-	struct trans *transactions; // array of transaction data
-	int num_trans; // number of accounts in this transaction
-	struct timeval time_arrival, time_end; // arrival time and end time
-	struct job *next; // pointer to the next request
-};**/
-		
+	
 			printf("ID %d\n", idCount);
 			
 			
 			struct job toAdd; //initialize a job
 			toAdd.request_ID = idCount; //provide it's request ID
-			toAdd.check_acc_ID = read_account(atoi(parts[1]));
-			toAdd.time_arrival = time;	
-			toAdd.next = NULL;
+			
+			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
+			toAdd.check_acc_ID = read_account(toInt); //currently wrong but i will change it later
+			toAdd.time_arrival = time; //also wrong but ill fix it later
+			toAdd.next = NULL; 
 				
 			
-			//mutex lock will go here later	
-			if(queueList.tail == NULL){ //if the queue is empty
-				queueList.tail = &toAdd;	
-				printf("Next was null, so it's now the tail\n");
-			}	
-			
-			else {
-				struct job* current;
-				current = queueList.tail;
-				while(current != NULL){
-				 current = queueList.tail[ts].next;
-				}
-				printf("Got here\n");
-				
-				
-			
+			if(queueList.num_jobs == 0){
+				queueList.head = queueList.tail = &toAdd;
 			}
+			else{
+				queueList.tail->next = &toAdd;
+				queueList.tail = &toAdd;
 				
+			}
 			
-			queueList.num_jobs++; //increase queue count jobs
+			queueList.num_jobs++;
 			
-			printf("Queue size: %d\n", queueList.num_jobs);
-			printf("CheckAccID: %d\n", toAdd.check_acc_ID);
-			printf("RequestID: %d\n", toAdd.request_ID);
+			printf("%d\n", queueList.num_jobs);
 			
-			idCount++;
+			
+		
 			
 			//mutex unlock will go here later
 			
 			flockfile(retFile); //lock the file
+			usleep(2000); //makes sure nothing gets corrupted
 			
 			//print to output file the following: <idCount> BAL <balance>
-			fprintf(retFile, "%d BAL %d\n", idCount, read_account(atoi(parts[1])));
+			fprintf(retFile, "%d BAL %d\n", idCount, read_account(toInt));
 			
 			funlockfile(retFile); //unlock the file
-
+			idCount++;
 			//task.time_end = put endtime here 
 							
 		}
