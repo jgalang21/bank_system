@@ -95,7 +95,6 @@ int main(int argc, char **argv){
 		int index = 0; 
 		char* part = strtok(input, " "); //split the string
 
-		size_t size = sizeof(parts);
 	
 		while(part != NULL){ //given on the board on how to split a string
 			parts[index] = part;
@@ -171,7 +170,15 @@ int main(int argc, char **argv){
 		
 		else if (strcmp(parts[0], "TRANS") == 0 ){
 	
+		if((index-1) % 2 != 0){
 
+			printf("Odd number of arguments, rejecting request\n");
+		}
+
+		else{
+			printf("This'll work!\n");
+		}
+/**	
 			if(sizeA-1 % 2 != 0){
 				printf("Odd number of arguments, rejecting request\n");
 				printf("ID %d\n", sizeA);
@@ -183,8 +190,8 @@ int main(int argc, char **argv){
 				printf("ID %d\n", sizeA);
 			
 			
-				sizeA = NULL; 
-
+				sizeA = 0; 
+**/
 	
 					
 		/**
@@ -213,7 +220,7 @@ int main(int argc, char **argv){
 
 			}	
 		
-		}
+		//}
 		
 		else{
 		
