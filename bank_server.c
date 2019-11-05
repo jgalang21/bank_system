@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <limits.h>
+#include <pthread.h>
 #include "Bank.h"
 
 #define MAX_ACC_ID 99999
@@ -54,7 +55,7 @@ pthread_cond_t worker;
 
 //struct timeval time; 
 struct queue queueList; //the queue for the overall program
-struct timeval time; 
+//struct timeval time; 
 
 
 int main(int argc, char **argv){
@@ -78,6 +79,8 @@ int main(int argc, char **argv){
 	//worker should have two states: 1. waiting 2. stopping when it knows no more jobs are coming
 	
 	int idCount = 1; 
+	int isBuilt = 0; 
+	int sizeA, o = 0;
 	
 	initialize_accounts(atoi(argv[2]));
 	
@@ -91,6 +94,8 @@ int main(int argc, char **argv){
 		char* parts[len]; 
 		int index = 0; 
 		char* part = strtok(input, " "); //split the string
+
+		size_t size = sizeof(parts);
 	
 		while(part != NULL){ //given on the board on how to split a string
 			parts[index] = part;
@@ -98,11 +103,13 @@ int main(int argc, char **argv){
 			part = strtok(NULL, " ");
 			parts[index] = NULL;
 		}
-	
-		int sizeA, o = 0;
-		while(parts[o] != NULL){ //helps keep track of transactions properly
-			sizeA++;
-			o++;
+		
+		if(isBuilt == 0){
+			
+			while(parts[o] != NULL){ //helps keep track of transactions properly
+				sizeA++;
+				o++;
+			}
 		}
 	
 		if(strcmp(parts[0], "END") == 0){
@@ -121,7 +128,7 @@ int main(int argc, char **argv){
 	struct timeval time_arrival, time_end; // arrival time and end time
 	struct job *next; // pointer to the next request**/
 		
-	
+
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
 	
@@ -133,7 +140,7 @@ int main(int argc, char **argv){
 			
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd.check_acc_ID = read_account(toInt); //add the account ID to job
-			toAdd.time_arrival = time; //FIX ------------------------------------------------------------
+			//toAdd.time_arrival = time; //FIX ------------------------------------------------------------
 			toAdd.next = NULL; 
 				
 			
@@ -164,11 +171,21 @@ int main(int argc, char **argv){
 		
 		else if (strcmp(parts[0], "TRANS") == 0 ){
 	
-			printf("ID %d\n", idCount);
+
+			if(sizeA-1 % 2 != 0){
+				printf("Odd number of arguments, rejecting request\n");
+				printf("ID %d\n", sizeA);
+
+			}
+
+			else{
+
+				printf("ID %d\n", sizeA);
 			
-			printf("parts length: %d\n", sizeA);
 			
-			
+				sizeA = NULL; 
+
+	
 					
 		/**
 			int request_ID;  // request ID assigned by the main thread
@@ -178,27 +195,23 @@ int main(int argc, char **argv){
 	struct timeval time_arrival, time_end; // arrival time and end time
 	struct job *next; // pointer to the next request**/
 			
-			struct job toAdd; 
-			toAdd.requestID = idCount;
+				struct job toAdd; 
+				toAdd.request_ID = idCount;
 			
-			
-			if(queueList.num_jobs == 0){
-				queueList.head = queueList.tail = &toAdd;
-			}
-			else{
-				queueList.tail->next = &toAdd;
-				queueList.tail = &toAdd;
+				if(queueList.num_jobs == 0){
+					queueList.head = queueList.tail = &toAdd;
+				}
+				else{
+					queueList.tail->next = &toAdd;
+					queueList.tail = &toAdd;
 				
-			}
+				}
 			
-			
-			
-			
-			
-			idCount++;
-			
-			queueList.num_jobs++;
-			
+				idCount++;
+				
+				queueList.num_jobs++;
+
+			}	
 		
 		}
 		
