@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include "Bank.h"
 
-#define MAX_ACC_ID 99999
+#define MAX_ACC_ID 100
 
 struct trans{    // structure for a transaction pair
 	int acc_id;  //    account id
@@ -133,17 +133,21 @@ int main(int argc, char **argv){
 	
 			printf("ID %d\n", idCount);
 			
-			
+			struct timeval time; 
+			gettimeofday(&time, NULL);
+				
 			struct job *toAdd;
 			toAdd = (struct job*) malloc(sizeof(struct job)); 
 			
-			toAdd->request_ID = idCount; //provide it's request ID
+			gettimeofday(&time, NULL);
+			toAdd->time_arrival = time; //assign the arrival time
 			
+			printf("time is: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
+			toAdd->request_ID = idCount; //provide it's request ID
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
-			//toAdd.time_arrival = time; //FIX ------------------------------------------------------------
-			toAdd->next = NULL; 
-				
+			
+			toAdd->next = NULL; 	
 			
 			if(queueList.num_jobs == 0){
 				queueList.head = queueList.tail = toAdd;
@@ -153,6 +157,7 @@ int main(int argc, char **argv){
 				queueList.tail = toAdd;
 				
 			}
+			
 			
 			queueList.num_jobs++;
 			
@@ -166,7 +171,10 @@ int main(int argc, char **argv){
 			
 			funlockfile(retFile); //unlock the file
 			idCount++;
-			//task.time_end = put endtime here 
+			
+			//gettimeofday(&time, NULL);
+			
+			
 							
 		}
 		
@@ -180,12 +188,25 @@ int main(int argc, char **argv){
 			else{
 				printf("ID %d\n", idCount);
 				
+				/**
+			struct job{
+			int request_ID;  // request ID assigned by the main thread
+			int check_acc_ID; // account ID for a CHECK request
+			struct trans *transactions; // array of transaction data
+			int num_trans; // number of accounts in this transaction
+			struct timeval time_arrival, time_end; // arrival time and end time
+			struct job *next; // pointer to the next request
+				
+				**/
+			
 				struct job *toAdd;
 				toAdd = (struct job*) malloc(sizeof(struct job)); 
 				//malloc toAdd and the transaction
 				
 				toAdd->request_ID = idCount;
-	
+				
+				gettimeofday(&time, NULL);
+				toAdd->time_arrival = time; //assign the arrival time
 			
 				if(queueList.num_jobs == 0){
 					queueList.head = queueList.tail = toAdd;
@@ -195,78 +216,62 @@ int main(int argc, char **argv){
 					queueList.tail = toAdd;
 				
 				}
-				// 0 1 2 
-				
-				/**
-					int acc_id;  //    account id
-					int amount;  //    amount to be added, can be positive or negative
-				**/
-				
-				
-				int c, r = 0; 
-				
-				
-				/**
-				struct trans *temp[(idCount / 2)];
-				temp = (struct trans) malloc(sizeof(struct *trans)); 
-				
-				
-				temp->acc_id = 2; 
-				
-				printf("%d\n", temp[0]);
-				**/
-				
+			
+			
+				int c, r = 0, check = 0, p = 0; 
 				
 				struct trans *temp = toAdd->transactions; 
 				temp = (struct trans*) malloc(sizeof(struct trans)); 
 				
 				for(c = 2; c <= index; c += 2){
 				
-					int account = atoi(parts[c-1]);
-					int amnt = atoi(parts[c]);
-					temp[r].acc_id = account; 
-					temp[r].amount = amnt;
-					//temp += 1; 
-					r++;
+					int account = atoi(parts[c-1]); //get the first parameter
+					int amnt = atoi(parts[c]); //get the second parameter
 					
-				
-					printf("acc_id - %d\n", account);
-					printf("amount - %d\n", amnt);
-				
+					if(account < MAX_ACC_ID && account > 0){ //makes sure the account is in range
+						
+						temp[r].acc_id = account; //assign the account id at the element
+						temp[r].amount = amnt; //assign the amount at the element
+						
+						r++; //increase size of struct array
 					
-				}
-				
-				for(r = 0; r < (index-1) / 2; r++){
-				
-					printf("%d\n", temp[r].acc_id);
-					printf("%d\n", temp[r].amount);
+					/**
+						//debugging
+						printf("acc_id - %d\n", account);
+						printf("amount - %d\n", amnt);
+					**/
 					
-				
+					}
 				}
 				
 				
+				toAdd->num_trans = r; //add the number of accounts in the transaction
+				//toAdd->next = NULL; //have it point to NULL as the next one.
 				
 				
 				idCount++;
 				
 				queueList.num_jobs++;
-
-			}	
-			}
-
-	
-					
-		/**
-			int request_ID;  // request ID assigned by the main thread
-	int check_acc_ID; // account ID for a CHECK request
-	struct trans *transactions; // array of transaction data
-	int num_trans; // number of accounts in this transaction
-	struct timeval time_arrival, time_end; // arrival time and end time
-	struct job *next; // pointer to the next request**/
-			
 				
+				
+				
+				//submit the job here to the worker thread
+				
+				
+				/**
+					//debugging
+					for(p = 0; p < r; p++){
+				
+						printf("%d\n", temp[p].acc_id);
+						printf("%d\n", temp[p].amount);
+										}
+					printf("r: %d\n", r); 
+					
+					**/
 		
-		//}
+
+				}	
+			}
 		
 		else{
 		
@@ -280,27 +285,7 @@ int main(int argc, char **argv){
 	
 	//free the malloc in the worker thread
 	
-	/**
-			logic for TRANS
-			struct trans tid; 
-			
-			int t;
-			
-			if(sizeA % 2 != 0){ //if we have an ODD number of transacations, one isn't going to be fulfilled so we can just ignore the last one
-				sizeA--;
-			}
-			 
-			for(t = 2 ; t < sizeA; t+=2){ //create the pairings
-			
-			tid.acc_id = atoi(parts[t-1]);
-			tid.amount = atoi(parts[t]);
-			
-			printf("%d, %d\n", tid.acc_id, tid.amount);
-			
-			}
-			
-			sizeA = 0;
-			**/
+
 	
 	
 	fclose(retFile);
