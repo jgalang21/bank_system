@@ -49,13 +49,11 @@ struct queue {
 * 
 **/
 
-pthread_mutex_t mut;
+pthread_mutex_t mut; //lock for the queue, and then the accounts,
 pthread_cond_t command; 	
 pthread_cond_t worker;
 
-//struct timeval time; 
 struct queue queueList; //the queue for the overall program
-//struct timeval time; 
 
 
 int main(int argc, char **argv){
@@ -119,15 +117,6 @@ int main(int argc, char **argv){
 		
 		}
 		
-		/**
-			int request_ID;  // request ID assigned by the main thread
-	int check_acc_ID; // account ID for a CHECK request
-	struct trans *transactions; // array of transaction data
-	int num_trans; // number of accounts in this transaction
-	struct timeval time_arrival, time_end; // arrival time and end time
-	struct job *next; // pointer to the next request**/
-		
-
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
 	
@@ -142,7 +131,7 @@ int main(int argc, char **argv){
 			gettimeofday(&time, NULL);
 			toAdd->time_arrival = time; //assign the arrival time
 			
-			printf("time is: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
+			//printf("time is: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
 			toAdd->request_ID = idCount; //provide it's request ID
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
@@ -161,7 +150,8 @@ int main(int argc, char **argv){
 			
 			queueList.num_jobs++;
 			
-			//mutex unlock will go here later
+			//this might go in the worker thread
+			//mutex unlock will go here later 
 			
 			flockfile(retFile); //lock the file
 			usleep(2000); //makes sure nothing gets corrupted
@@ -205,18 +195,9 @@ int main(int argc, char **argv){
 				
 				toAdd->request_ID = idCount;
 				
+				struct timeval time; 
 				gettimeofday(&time, NULL);
 				toAdd->time_arrival = time; //assign the arrival time
-			
-				if(queueList.num_jobs == 0){
-					queueList.head = queueList.tail = toAdd;
-				}
-				else{
-					queueList.tail->next = toAdd;
-					queueList.tail = toAdd;
-				
-				}
-			
 			
 				int c, r = 0, check = 0, p = 0; 
 				
@@ -248,6 +229,16 @@ int main(int argc, char **argv){
 				toAdd->num_trans = r; //add the number of accounts in the transaction
 				//toAdd->next = NULL; //have it point to NULL as the next one.
 				
+				
+				if(queueList.num_jobs == 0){
+					queueList.head = queueList.tail = toAdd;
+				}
+				else{
+					queueList.tail->next = toAdd;
+					queueList.tail = toAdd;
+				
+				}
+			
 				
 				idCount++;
 				
@@ -285,7 +276,7 @@ int main(int argc, char **argv){
 	
 	//free the malloc in the worker thread
 	
-
+	
 	
 	
 	fclose(retFile);
