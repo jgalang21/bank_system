@@ -53,6 +53,10 @@ pthread_mutex_t mut; //lock for the queue, and then the accounts,
 pthread_cond_t command; 	
 pthread_cond_t worker;
 
+
+void *workerThread(); 
+int done = 0; 
+
 struct queue queueList; //the queue for the overall program
 
 
@@ -67,6 +71,17 @@ int main(int argc, char **argv){
 	FILE *retFile;
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
+	//initialize worker threads
+	pthread_t worker_tid[atoi(argv[2])];
+	int thread_index[atoi(argv[2])]; //create a thread index for the worker
+	
+	int w = 0; 
+	for(w = 0; w < atoi(argv[2]); w++){ //create the specified amount of workers
+		thread_index[w] = w;
+		pthread_create(&worker_tid[w], NULL, workerThread, &thread_index[w]);
+	
+	}
+	
 
 	if(argc != 4){
 		 printf("Not enough arguments\n");
@@ -77,7 +92,7 @@ int main(int argc, char **argv){
 	//worker should have two states: 1. waiting 2. stopping when it knows no more jobs are coming
 	
 	int idCount = 1; 
-	int isBuilt = 0; 
+	
 	int sizeA, o = 0;
 	
 	initialize_accounts(atoi(argv[2]));
@@ -101,15 +116,9 @@ int main(int argc, char **argv){
 			parts[index] = NULL;
 		}
 		
-		if(isBuilt == 0){
-			
-			while(parts[o] != NULL){ //helps keep track of transactions properly
-				sizeA++;
-				o++;
-			}
-		}
 	
 		if(strcmp(parts[0], "END") == 0){
+		
 		
 		//queue the rest of the commands before returning
 		
@@ -124,7 +133,7 @@ int main(int argc, char **argv){
 			
 			struct timeval time; 
 			gettimeofday(&time, NULL);
-				
+	
 			struct job *toAdd;
 			toAdd = (struct job*) malloc(sizeof(struct job)); 
 			
@@ -136,6 +145,8 @@ int main(int argc, char **argv){
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
 			
+			
+			pthread_mutex_lock(&mut);
 			toAdd->next = NULL; 	
 			
 			if(queueList.num_jobs == 0){
@@ -147,11 +158,15 @@ int main(int argc, char **argv){
 				
 			}
 			
-			
 			queueList.num_jobs++;
 			
+			pthread_mutex_unlock(&mut);
 			//this might go in the worker thread
 			//mutex unlock will go here later 
+			
+			pthread_cond_signal(&worker);
+			
+			
 			
 			flockfile(retFile); //lock the file
 			usleep(2000); //makes sure nothing gets corrupted
@@ -281,6 +296,18 @@ int main(int argc, char **argv){
 	
 	fclose(retFile);
 	
+	
+}
+
+//to make this run, join the thread
+void *workerThread() {
+
+	pthread_mutex_lock(&mut);
+	
+	printf("processing...\n");
+	
+	pthread_mutex_unlock(&mut);
+		
 }
 
 
