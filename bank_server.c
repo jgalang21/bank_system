@@ -23,6 +23,7 @@ struct job{
 	int num_trans; // number of accounts in this transaction
 	struct timeval time_arrival, time_end; // arrival time and end time
 	struct job *next; // pointer to the next request
+	int type; //added this, 1 = TRANS, 0 = CHECK
 };
 
 struct queue {
@@ -30,17 +31,6 @@ struct queue {
 	// add jobs after the tail, take jobs from the head
 	int num_jobs; // number of jobs in current queue
 };
-
-
-	/**
-	int request_ID;  // request ID assigned by the main thread
-	int check_acc_ID; // account ID for a CHECK request
-	struct trans *transactions; // array of transaction data
-	int num_trans; // number of accounts in this transaction
-	struct timeval time_arrival, time_end; // arrival time and end time
-	struct job *next; // pointer to the next request**/
-	
-
 
 /**
 *
@@ -71,6 +61,7 @@ int main(int argc, char **argv){
 	FILE *retFile;
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
+	
 	//initialize worker threads
 	pthread_t worker_tid[atoi(argv[2])];
 	int thread_index[atoi(argv[2])]; //create a thread index for the worker
@@ -78,11 +69,12 @@ int main(int argc, char **argv){
 	int w = 0; 
 	for(w = 0; w < atoi(argv[2]); w++){ //create the specified amount of workers
 		thread_index[w] = w;
-		pthread_create(&worker_tid[w], NULL, workerThread, &thread_index[w]);
+		pthread_create(&worker_tid[w], NULL, workerThread, (void *)&thread_index[w]);
 	
 	}
 	
 
+	
 	if(argc != 4){
 		 printf("Not enough arguments\n");
 		 return(0);
@@ -96,6 +88,11 @@ int main(int argc, char **argv){
 	int sizeA, o = 0;
 	
 	initialize_accounts(atoi(argv[2]));
+	
+	pthread_mutex_init(&mut, NULL);
+	pthread_cond_init(&worker, NULL);
+
+	pthread_mutex_t mutexArr[atoi(argv[2])-1]; //create the array of mutexes
 	
 	while(1){
 	
@@ -119,7 +116,14 @@ int main(int argc, char **argv){
 	
 		if(strcmp(parts[0], "END") == 0){
 		
-		
+		int r = 0; 
+
+		for(r = 0; r < atoi(argv[2]); r++){
+			 done = 1;
+			pthread_cond_broadcast(&worker);
+
+			pthread_join(worker_tid[0], NULL);
+		}
 		//queue the rest of the commands before returning
 		
 		return 0; 
@@ -128,7 +132,9 @@ int main(int argc, char **argv){
 		
 		
 		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
-	
+
+		
+
 			printf("ID %d\n", idCount);
 			
 			struct timeval time; 
@@ -144,10 +150,9 @@ int main(int argc, char **argv){
 			toAdd->request_ID = idCount; //provide it's request ID
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
-			
-			
-			pthread_mutex_lock(&mut);
 			toAdd->next = NULL; 	
+
+			
 			
 			if(queueList.num_jobs == 0){
 				queueList.head = queueList.tail = toAdd;
@@ -160,11 +165,10 @@ int main(int argc, char **argv){
 			
 			queueList.num_jobs++;
 			
-			pthread_mutex_unlock(&mut);
 			//this might go in the worker thread
 			//mutex unlock will go here later 
 			
-			pthread_cond_signal(&worker);
+			
 			
 			
 			
@@ -192,17 +196,6 @@ int main(int argc, char **argv){
 
 			else{
 				printf("ID %d\n", idCount);
-				
-				/**
-			struct job{
-			int request_ID;  // request ID assigned by the main thread
-			int check_acc_ID; // account ID for a CHECK request
-			struct trans *transactions; // array of transaction data
-			int num_trans; // number of accounts in this transaction
-			struct timeval time_arrival, time_end; // arrival time and end time
-			struct job *next; // pointer to the next request
-				
-				**/
 			
 				struct job *toAdd;
 				toAdd = (struct job*) malloc(sizeof(struct job)); 
@@ -292,21 +285,24 @@ int main(int argc, char **argv){
 	//free the malloc in the worker thread
 	
 	
-	
-	
 	fclose(retFile);
 	
 	
 }
 
 //to make this run, join the thread
-void *workerThread() {
+
+void *workerThread(void *arg) {
 
 	pthread_mutex_lock(&mut);
-	
-	printf("processing...\n");
-	
+	while(done == 0)
+		pthread_cond_wait(&worker, &mut);
+
+	printf("Done!\n");
+	fflush(stdin);
+
 	pthread_mutex_unlock(&mut);
+	return NULL;
 		
 }
 
