@@ -45,7 +45,7 @@ pthread_cond_t worker;
 
 
 void *workerThread(); 
-int done = 0; 
+int working = 0; 
 
 struct queue queueList; //the queue for the overall program
 
@@ -118,14 +118,16 @@ int main(int argc, char **argv){
 		
 		int r = 0; 
 
+
+		
 		for(r = 0; r < atoi(argv[2]); r++){
-			 done = 1;
+			 working = 1;
 			pthread_cond_broadcast(&worker);
 
-			pthread_join(worker_tid[0], NULL);
+			pthread_join(worker_tid[r], NULL);
 		}
 		//queue the rest of the commands before returning
-		
+	
 		return 0; 
 		
 		}
@@ -151,8 +153,9 @@ int main(int argc, char **argv){
 			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
 			toAdd->next = NULL; 	
+			toAdd->type = 0;
 
-			
+			printf("%d\n", toAdd->type);
 			
 			if(queueList.num_jobs == 0){
 				queueList.head = queueList.tail = toAdd;
@@ -170,16 +173,6 @@ int main(int argc, char **argv){
 			
 			
 			
-			
-			
-			flockfile(retFile); //lock the file
-			usleep(2000); //makes sure nothing gets corrupted
-			
-			//print to output file the following: <idCount> BAL <balance>
-			fprintf(retFile, "%d BAL %d\n", idCount, read_account(toInt));
-			
-			funlockfile(retFile); //unlock the file
-			idCount++;
 			
 			//gettimeofday(&time, NULL);
 			
@@ -233,7 +226,9 @@ int main(int argc, char **argv){
 					}
 				}
 				
-				
+				toAdd->type = 1;
+				printf("%d\n", toAdd->type);
+
 				toAdd->num_trans = r; //add the number of accounts in the transaction
 				//toAdd->next = NULL; //have it point to NULL as the next one.
 				
@@ -295,10 +290,41 @@ int main(int argc, char **argv){
 void *workerThread(void *arg) {
 
 	pthread_mutex_lock(&mut);
-	while(done == 0)
+	while(working == 0)
 		pthread_cond_wait(&worker, &mut);
 
-	printf("Done!\n");
+
+	struct job* toCheck = queueList.head;
+
+	if(toCheck->type == 0){ //if its a CHECK request
+		printf("This is a CHECK request\n");
+
+		flockfile(retFile); //lock the file
+		usleep(2000); //makes sure nothing gets corrupted
+			
+		//print to output file the following: <idCount> BAL <balance>
+		fprintf(retFile, "%d BAL %d\n", idCount, read_account(toInt));
+			
+		funlockfile(retFile); //unlock the file
+		idCount++;
+
+	}
+
+	else if(toCheck->type == 1){ //if it's a TRANS request
+		printf("This is a TRANS request\n");
+	}
+
+
+	//updating the queue here
+	if(queueList.head->next != NULL){
+		queueList.head = queueList.head->next;
+	}
+
+	if(queueList.tail->next != NULL){
+		queueList.tail = queueList.tail->next;
+	}
+	
+
 	fflush(stdin);
 
 	pthread_mutex_unlock(&mut);
