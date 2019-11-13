@@ -40,15 +40,17 @@ struct queue {
 **/
 
 pthread_mutex_t mut; //lock for the queue, and then the accounts,
+pthread_mutex_t mut2; //lock for the queue itself
 pthread_cond_t command; 	
 pthread_cond_t worker;
-
+FILE *retFile;
+int idCount;
 
 void *workerThread(); 
 int working = 0; 
 
 struct queue queueList; //the queue for the overall program
-
+int toInt;
 
 int main(int argc, char **argv){
 	int ts = 0;
@@ -58,7 +60,7 @@ int main(int argc, char **argv){
 	
 	char input [200];
 	 
-	FILE *retFile;
+	
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
 	
@@ -83,7 +85,7 @@ int main(int argc, char **argv){
 	//main should just put things in the queue, protect queue with mutexes, use a signal to whenever something gets added to the queue.
 	//worker should have two states: 1. waiting 2. stopping when it knows no more jobs are coming
 	
-	int idCount = 1; 
+	idCount = 1; 
 	
 	int sizeA, o = 0;
 	
@@ -120,7 +122,7 @@ int main(int argc, char **argv){
 
 
 		
-		for(r = 0; r < atoi(argv[2]); r++){
+		for(r = 0; r < queueList.num_jobs; r++){
 			 working = 1;
 			pthread_cond_broadcast(&worker);
 
@@ -137,7 +139,7 @@ int main(int argc, char **argv){
 
 		
 
-			printf("ID %d\n", idCount);
+			printf("< ID %d\n", idCount);
 			
 			struct timeval time; 
 			gettimeofday(&time, NULL);
@@ -150,7 +152,7 @@ int main(int argc, char **argv){
 			
 			//printf("time is: %ld.%06.ld\n", time.tv_sec, time.tv_usec);
 			toAdd->request_ID = idCount; //provide it's request ID
-			int toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
+			 toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
 			toAdd->next = NULL; 	
 			toAdd->type = 0;
@@ -171,7 +173,7 @@ int main(int argc, char **argv){
 			//this might go in the worker thread
 			//mutex unlock will go here later 
 			
-			
+			idCount++;
 			
 			
 			//gettimeofday(&time, NULL);
@@ -217,21 +219,18 @@ int main(int argc, char **argv){
 						
 						r++; //increase size of struct array
 					
-					/**
 						//debugging
-						printf("acc_id - %d\n", account);
-						printf("amount - %d\n", amnt);
-					**/
+						//printf("acc_id - %d\n", account);
+						//printf("amount - %d\n", amnt);
+					
 					
 					}
 				}
 				
 				toAdd->type = 1;
 				printf("%d\n", toAdd->type);
-
+				toAdd->transactions = temp;
 				toAdd->num_trans = r; //add the number of accounts in the transaction
-				//toAdd->next = NULL; //have it point to NULL as the next one.
-				
 				
 				if(queueList.num_jobs == 0){
 					queueList.head = queueList.tail = toAdd;
@@ -251,18 +250,7 @@ int main(int argc, char **argv){
 				
 				//submit the job here to the worker thread
 				
-				
-				/**
-					//debugging
-					for(p = 0; p < r; p++){
-				
-						printf("%d\n", temp[p].acc_id);
-						printf("%d\n", temp[p].amount);
-										}
-					printf("r: %d\n", r); 
-					
-					**/
-		
+			
 
 				}	
 			}
@@ -301,9 +289,12 @@ void *workerThread(void *arg) {
 
 		flockfile(retFile); //lock the file
 		usleep(2000); //makes sure nothing gets corrupted
-			
+		 	
+		struct timeval time; 
+		gettimeofday(&time, NULL);	
+		toCheck->time_end = time;
 		//print to output file the following: <idCount> BAL <balance>
-		fprintf(retFile, "%d BAL %d\n", idCount, read_account(toInt));
+		fprintf(retFile, "%d BAL %d %ld.%06.ld %ld.%06.ld \n", toCheck->request_ID, read_account(toInt), toCheck->time_arrival, toCheck->time_end);
 			
 		funlockfile(retFile); //unlock the file
 		idCount++;
@@ -312,6 +303,37 @@ void *workerThread(void *arg) {
 
 	else if(toCheck->type == 1){ //if it's a TRANS request
 		printf("This is a TRANS request\n");
+
+		printf("%d total\n", toCheck->num_trans);
+
+		struct trans *tempTrans = toCheck->transactions;
+
+
+		flockfile(retFile); //lock the file
+
+		int n = 0; 
+		for(n = 0; n < toCheck->num_trans; n++){
+		  if(tempTrans[n].amount > 0) {
+		  	write_account(tempTrans[n].acc_id, tempTrans[n].amount);
+			fprintf(retFile, "%d OK\n", toCheck->request_ID);
+		  //	printf("positive vibes\n");
+		  }
+		  else if(tempTrans[n].amount < 0 && (read_account(tempTrans[n].acc_id)-tempTrans[n].amount > 0)){
+		  	write_account(tempTrans[n].acc_id, tempTrans[n].amount);
+		  	fprintf(retFile, "%d OK\n", toCheck->request_ID);
+
+		 // 	printf("negative vibes :(\n");
+		  }
+		
+		}
+		struct timeval time; 
+		gettimeofday(&time, NULL);	
+		toCheck->time_end = time;
+		//print to output file the following: <idCount> BAL <balance>
+		//fprintf(retFile, "%d BAL %d %ld.%06.ld %ld.%06.ld \n", idCount);
+			
+		funlockfile(retFile); //unlock the file
+		
 	}
 
 
@@ -323,7 +345,8 @@ void *workerThread(void *arg) {
 	if(queueList.tail->next != NULL){
 		queueList.tail = queueList.tail->next;
 	}
-	
+
+
 
 	fflush(stdin);
 
