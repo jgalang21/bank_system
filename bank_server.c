@@ -308,24 +308,43 @@ void *workerThread(void *arg) {
 
 		struct trans *tempTrans = toCheck->transactions;
 
+		int isVoid = 0; //boolean that checks to make sure that all given accounts have sufficient balance.
 
 		flockfile(retFile); //lock the file
 
-		int n = 0; 
-		for(n = 0; n < toCheck->num_trans; n++){
-		  if(tempTrans[n].amount > 0) {
-		  	write_account(tempTrans[n].acc_id, tempTrans[n].amount);
-			fprintf(retFile, "%d OK\n", toCheck->request_ID);
-		  //	printf("positive vibes\n");
-		  }
-		  else if(tempTrans[n].amount < 0 && (read_account(tempTrans[n].acc_id)-tempTrans[n].amount > 0)){
-		  	write_account(tempTrans[n].acc_id, tempTrans[n].amount);
-		  	fprintf(retFile, "%d OK\n", toCheck->request_ID);
+		int z = 0; 
 
-		 // 	printf("negative vibes :(\n");
-		  }
+		printf("%d\n", read_account(tempTrans[z].acc_id));
+		for(z = 0; z < toCheck->num_trans; z++){
+		 	 if(tempTrans[z].amount > 0) {
+		  		isVoid++;
+		  	}
+		  	else if(tempTrans[z].amount < 0 && (read_account(tempTrans[z].acc_id)-tempTrans[z].amount < 0)){
+		 
+		  
+		  	}
 		
 		}
+
+		if(isVoid == toCheck->num_trans){
+			int n = 0; 
+			for(n = 0; n < toCheck->num_trans; n++){
+		 	 if(tempTrans[n].amount > 0) {
+		  		write_account(tempTrans[n].acc_id, tempTrans[n].amount);
+				fprintf(retFile, "%d OK\n", toCheck->request_ID);
+		  	//	printf("positive vibes\n");
+		  	}
+		  	else if(tempTrans[n].amount < 0 && (read_account(tempTrans[n].acc_id)-tempTrans[n].amount >= 0)){
+		  		write_account(tempTrans[n].acc_id, tempTrans[n].amount);
+		  		fprintf(retFile, "%d OK\n", toCheck->request_ID);
+
+		 	// 	printf("negative vibes :(\n");
+		  	}
+		
+			}
+		}
+
+
 		struct timeval time; 
 		gettimeofday(&time, NULL);	
 		toCheck->time_end = time;
