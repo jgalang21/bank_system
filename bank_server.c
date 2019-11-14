@@ -317,38 +317,44 @@ void *workerThread(void *arg) {
 			
 	
 		for(z = 0; z < toCheck->num_trans; z++){
-		
+			int checkAmt = toCheck->transactions[z].amount;
+			int getID = toCheck->transactions[z].acc_id;
+			
+			if(checkAmt < 0){
+			
+			}
+			
 			
 		}
 
 
-		int z = 0; 
 
-		for(z = 0; z < toCheck->num_trans; z++){
-			int tempAmt = toCheck->transactions[z].amount;
-			int tempID = toCheck->transactions[z].acc_id;
+		if(cancel != 1){
+			int z = 0; 
+
+			for(z = 0; z < toCheck->num_trans; z++){
+				int tempAmt = toCheck->transactions[z].amount;
+				int tempID = toCheck->transactions[z].acc_id;
 		
-			if(tempAmt > 0){ //if the amount we want to add is positive
+				if(tempAmt > 0){ //if the amount we want to add is positive
 		
 			//int accToWrite = read_account(tempID);
-			printf("Before:\n");
-			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
-			write_account(tempID, tempAmt);
-			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+					printf("Before:\n");
+					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+					write_account(tempID, tempAmt);
+					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
 
+				}
+			
+				else if(tempAmt < 0 && (read_account(tempID)-tempAmt >= 0)){ //if the amount we want to add is negative
+					int newBalance = tempAmt -read_account(tempID) ;
+					printf("%d\n", newBalance);
+					write_account(tempID, newBalance);
+					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
+			
 			}
 			
-			else if(tempAmt < 0 && (read_account(tempID)-tempAmt >= 0)){ //if the amount we want to add is negative
-			int newBalance = tempAmt -read_account(tempID) ;
-			printf("%d\n", newBalance);
-			write_account(tempID, newBalance);
-			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
-			
-			}
-			
-			
-			
-			
+		}
 		}
 		
 		
