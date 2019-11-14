@@ -99,14 +99,14 @@ int main(int argc, char **argv){
 	while(1){
 	
 		printf(">");
-		
+		 
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
 		int len = strlen(input);
 		input[len-1] = '\0'; //assign the last element to be null
 		char* parts[len]; 
 		int index = 0; 
 		char* part = strtok(input, " "); //split the string
-
+ 
 	
 		while(part != NULL){ //given on the board on how to split a string
 			parts[index] = part;
@@ -116,7 +116,7 @@ int main(int argc, char **argv){
 		}
 		
 	
-		if(strcmp(parts[0], "END") == 0){
+		if(strcmp(parts[0],  "END") == 0){
 		
 		int r = 0; 
 
@@ -129,6 +129,7 @@ int main(int argc, char **argv){
 			pthread_join(worker_tid[r], NULL);
 		}
 		//queue the rest of the commands before returning
+		sleep(1);
 	
 		return 0; 
 		
@@ -184,7 +185,7 @@ int main(int argc, char **argv){
 		
 		else if (strcmp(parts[0], "TRANS") == 0 ){
 	
-			if((index-1) % 2 != 0){
+			if((index-1) % 2  != 0){
 
 				printf("Odd number of arguments, rejecting request\n");
 			}
@@ -205,12 +206,15 @@ int main(int argc, char **argv){
 				int c, r = 0, check = 0, p = 0; 
 				
 				struct trans *temp = toAdd->transactions; 
-				temp = (struct trans*) malloc(sizeof(struct trans)); 
+				temp = (struct trans*) malloc(sizeof(struct trans) * ((index-1)/2)); 
 				
-				for(c = 2; c <= index; c += 2){
+				printf("index %d\n", index);
+				
+				for(c = 2; c <= index-1; c += 2){
 				
 					int account = atoi(parts[c-1]); //get the first parameter
 					int amnt = atoi(parts[c]); //get the second parameter
+					
 					
 					if(account < MAX_ACC_ID && account > 0){ //makes sure the account is in range
 						
@@ -228,7 +232,6 @@ int main(int argc, char **argv){
 				}
 				
 				toAdd->type = 1;
-				printf("%d\n", toAdd->type);
 				toAdd->transactions = temp;
 				toAdd->num_trans = r; //add the number of accounts in the transaction
 				
@@ -267,7 +270,7 @@ int main(int argc, char **argv){
 	
 	//free the malloc in the worker thread
 	
-	
+	 
 	fclose(retFile);
 	
 	
@@ -306,16 +309,59 @@ void *workerThread(void *arg) {
 
 		printf("%d total\n", toCheck->num_trans);
 
-		struct trans *tempTrans = toCheck->transactions;
-
 		int isVoid = 0; //boolean that checks to make sure that all given accounts have sufficient balance.
 
 		flockfile(retFile); //lock the file
+		
+		int cancel = 0; //check if we need to cancel the TRANS due to an insufficient balance
+			
+	
+		for(z = 0; z < toCheck->num_trans; z++){
+		
+			
+		}
+
 
 		int z = 0; 
 
-		printf("%d\n", read_account(tempTrans[z].acc_id));
 		for(z = 0; z < toCheck->num_trans; z++){
+			int tempAmt = toCheck->transactions[z].amount;
+			int tempID = toCheck->transactions[z].acc_id;
+		
+			if(tempAmt > 0){ //if the amount we want to add is positive
+		
+			//int accToWrite = read_account(tempID);
+			printf("Before:\n");
+			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+			write_account(tempID, tempAmt);
+			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+
+			}
+			
+			else if(tempAmt < 0 && (read_account(tempID)-tempAmt >= 0)){ //if the amount we want to add is negative
+			int newBalance = tempAmt -read_account(tempID) ;
+			printf("%d\n", newBalance);
+			write_account(tempID, newBalance);
+			printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
+			
+			}
+			
+			
+			
+			
+		}
+		
+		
+		
+		
+		
+	//	printf("val2: %d\n", read_account(toCheck->transactions[1].acc_id));
+		/**
+		for(z = 0; z < toCheck->num_trans; z++){
+		
+		printf("tempTrans: %d\n", tempTrans[z].amount);
+		}
+		/**
 		 	 if(tempTrans[z].amount > 0) {
 		  		isVoid++;
 		  	}
@@ -323,9 +369,11 @@ void *workerThread(void *arg) {
 		 
 		  
 		  	}
+		  	**/
 		
-		}
+		//}
 
+/**
 		if(isVoid == toCheck->num_trans){
 			int n = 0; 
 			for(n = 0; n < toCheck->num_trans; n++){
@@ -344,6 +392,7 @@ void *workerThread(void *arg) {
 			}
 		}
 
+**/
 
 		struct timeval time; 
 		gettimeofday(&time, NULL);	
@@ -365,7 +414,7 @@ void *workerThread(void *arg) {
 		queueList.tail = queueList.tail->next;
 	}
 
-
+	//free(toCheck);
 
 	fflush(stdin);
 
