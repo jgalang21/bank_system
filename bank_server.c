@@ -50,9 +50,11 @@ void *workerThread();
 int working = 0; 
 
 struct queue queueList; //the queue for the overall program
+
 int toInt;
 
 int main(int argc, char **argv){
+	 
 	int ts = 0;
 	queueList.num_jobs = 0; //initially set it to 0
 	queueList.head = NULL; //set head and tail to null
@@ -120,8 +122,6 @@ int main(int argc, char **argv){
 		
 		int r = 0; 
 
-
-		
 		for(r = 0; r < queueList.num_jobs; r++){
 			 working = 1;
 			pthread_cond_broadcast(&worker);
@@ -175,9 +175,6 @@ int main(int argc, char **argv){
 			//mutex unlock will go here later 
 			
 			idCount++;
-			
-			
-			//gettimeofday(&time, NULL);
 			
 			
 							
@@ -314,91 +311,57 @@ void *workerThread(void *arg) {
 		flockfile(retFile); //lock the file
 		
 		int cancel = 0; //check if we need to cancel the TRANS due to an insufficient balance
-			
+		
 	
+		int z = 0; 
+		int fRID, tID, once = 0; 
+		
 		for(z = 0; z < toCheck->num_trans; z++){
-			int checkAmt = toCheck->transactions[z].amount;
-			int getID = toCheck->transactions[z].acc_id;
-			
-			if(checkAmt < 0){
+			int tempAmt = toCheck->transactions[z].amount;
+			int tempID = toCheck->transactions[z].acc_id;
+		
+			if(read_account(tempID) + tempAmt < 0  && once == 0){ //if the amount we want to add is negative
+			 
+			 cancel = 1;	
+			 fRID = toCheck->request_ID;
+			 tID = tempID;
+			 once = 1; 
 			
 			}
 			
-			
+		}
+		
+		if(once == 1){
+			fprintf(retFile, "%d ISF %d\n", fRID, tID); //have it only print once
 		}
 
-
-
-		if(cancel != 1){
-			int z = 0; 
-
+		else if(cancel != 1){
 			for(z = 0; z < toCheck->num_trans; z++){
 				int tempAmt = toCheck->transactions[z].amount;
 				int tempID = toCheck->transactions[z].acc_id;
 		
 				if(tempAmt > 0){ //if the amount we want to add is positive
 		
-			//int accToWrite = read_account(tempID);
-					printf("Before:\n");
-					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+					fprintf(retFile, "%d OK\n", toCheck->request_ID); //have it only print once	
 					write_account(tempID, tempAmt);
-					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
+					//printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
 
 				}
 			
-				else if(tempAmt < 0 && (read_account(tempID)-tempAmt >= 0)){ //if the amount we want to add is negative
-					int newBalance = tempAmt -read_account(tempID) ;
-					printf("%d\n", newBalance);
+				else if(tempAmt < 0 && (read_account(tempID)+tempAmt >= 0)){ //if the amount we want to add is negative
+					int newBalance = tempAmt + read_account(tempID) ;
+					//printf("%d\n", newBalance);
+					fprintf(retFile, "%d OK\n", toCheck->request_ID); //have it only print once	
 					write_account(tempID, newBalance);
-					printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
+					//printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
+				
+				}
 			
 			}
 			
 		}
-		}
-		
-		
-		
-		
-		
-	//	printf("val2: %d\n", read_account(toCheck->transactions[1].acc_id));
-		/**
-		for(z = 0; z < toCheck->num_trans; z++){
-		
-		printf("tempTrans: %d\n", tempTrans[z].amount);
-		}
-		/**
-		 	 if(tempTrans[z].amount > 0) {
-		  		isVoid++;
-		  	}
-		  	else if(tempTrans[z].amount < 0 && (read_account(tempTrans[z].acc_id)-tempTrans[z].amount < 0)){
-		 
-		  
-		  	}
-		  	**/
-		
-		//}
 
-/**
-		if(isVoid == toCheck->num_trans){
-			int n = 0; 
-			for(n = 0; n < toCheck->num_trans; n++){
-		 	 if(tempTrans[n].amount > 0) {
-		  		write_account(tempTrans[n].acc_id, tempTrans[n].amount);
-				fprintf(retFile, "%d OK\n", toCheck->request_ID);
-		  	//	printf("positive vibes\n");
-		  	}
-		  	else if(tempTrans[n].amount < 0 && (read_account(tempTrans[n].acc_id)-tempTrans[n].amount >= 0)){
-		  		write_account(tempTrans[n].acc_id, tempTrans[n].amount);
-		  		fprintf(retFile, "%d OK\n", toCheck->request_ID);
-
-		 	// 	printf("negative vibes :(\n");
-		  	}
-		
-			}
-		}
-
-**/
+	
 
 		struct timeval time; 
 		gettimeofday(&time, NULL);	
