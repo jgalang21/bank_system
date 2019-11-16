@@ -46,12 +46,17 @@ pthread_cond_t worker;
 FILE *retFile;
 int idCount;
 
+//pthread_mutex_t mutArr[];
+
 void *workerThread(); 
 int working = 0; 
 
 struct queue queueList; //the queue for the overall program
 
 int toInt;
+
+pthread_mutex_t *mutexArr;
+
 
 int main(int argc, char **argv){
 	 
@@ -67,8 +72,8 @@ int main(int argc, char **argv){
 	
 	
 	//initialize worker threads
-	pthread_t worker_tid[atoi(argv[2])];
-	int thread_index[atoi(argv[2])]; //create a thread index for the worker
+	pthread_t worker_tid[atoi(argv[1])];
+	int thread_index[atoi(argv[1])]; //create a thread index for the worker
 	
 	int w = 0; 
 	for(w = 0; w < atoi(argv[2]); w++){ //create the specified amount of workers
@@ -96,13 +101,22 @@ int main(int argc, char **argv){
 	pthread_mutex_init(&mut, NULL);
 	pthread_cond_init(&worker, NULL);
 
-	pthread_mutex_t mutexArr[atoi(argv[2])-1]; //create the array of mutexes
 	
+	sizeA = atoi(argv[2]);
+	mutexArr = (pthread_mutex_t*)malloc(sizeA * sizeof(mutexArr)); //create array of jobs
+	
+	for(o = 0; o < sizeA; o++){
+		pthread_mutex_init(&mutexArr[o], NULL);
+	}
+	
+	printf("error1\n");
 	while(1){
+		printf("error2\n"); //segfault happens around here? ------------------------------------------------------------------
 	
 		printf(">");
-		 
+		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
+		
 		int len = strlen(input);
 		input[len-1] = '\0'; //assign the last element to be null
 		char* parts[len]; 
@@ -122,12 +136,14 @@ int main(int argc, char **argv){
 		
 		int r = 0; 
 
+/**
 		for(r = 0; r < queueList.num_jobs; r++){
 			 working = 1;
 			pthread_cond_broadcast(&worker);
 
 			pthread_join(worker_tid[r], NULL);
 		}
+		**/
 		//queue the rest of the commands before returning
 		sleep(1);
 	
@@ -136,9 +152,7 @@ int main(int argc, char **argv){
 		}
 		
 		
-		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){
-
-		
+		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){	
 
 			printf("< ID %d\n", idCount);
 			
@@ -170,10 +184,7 @@ int main(int argc, char **argv){
 			}
 			
 			queueList.num_jobs++;
-			
-			//this might go in the worker thread
-			//mutex unlock will go here later 
-			
+		
 			idCount++;
 			
 			
@@ -203,9 +214,7 @@ int main(int argc, char **argv){
 				int c, r = 0, check = 0, p = 0; 
 				
 				struct trans *temp = toAdd->transactions; 
-				temp = (struct trans*) malloc(sizeof(struct trans) * ((index-1)/2)); 
-				
-				printf("index %d\n", index);
+				temp = (struct trans*) malloc(sizeof(struct trans) * ((index-1))); 
 				
 				for(c = 2; c <= index-1; c += 2){
 				
@@ -240,17 +249,12 @@ int main(int argc, char **argv){
 					queueList.tail = toAdd;
 				
 				}
-			
 				
 				idCount++;
 				
 				queueList.num_jobs++;
-				
-				
-				
+
 				//submit the job here to the worker thread
-				
-			
 
 				}	
 			}
@@ -261,7 +265,7 @@ int main(int argc, char **argv){
 		
 		}
 	
-		
+		pthread_cond_broadcast(&worker);
 	}
 	
 	
@@ -277,11 +281,10 @@ int main(int argc, char **argv){
 
 void *workerThread(void *arg) {
 
+while(queueList.num_jobs != 0){
 	pthread_mutex_lock(&mut);
-	while(working == 0)
-		pthread_cond_wait(&worker, &mut);
-
-
+	
+	printf("here i am\n");
 	struct job* toCheck = queueList.head;
 
 	if(toCheck->type == 0){ //if its a CHECK request
@@ -304,6 +307,7 @@ void *workerThread(void *arg) {
 	else if(toCheck->type == 1){ //if it's a TRANS request
 		printf("This is a TRANS request\n");
 
+		printf("getting here\n");
 		printf("%d total\n", toCheck->num_trans);
 
 		int isVoid = 0; //boolean that checks to make sure that all given accounts have sufficient balance.
@@ -327,6 +331,7 @@ void *workerThread(void *arg) {
 			 tID = tempID;
 			 once = 1; 
 			
+		
 			}
 			
 		}
@@ -341,17 +346,21 @@ void *workerThread(void *arg) {
 				int tempID = toCheck->transactions[z].acc_id;
 		
 				if(tempAmt > 0){ //if the amount we want to add is positive
-		
+	
+					pthread_mutex_lock(&mutexArr[tempID-1]);
 					fprintf(retFile, "%d OK\n", toCheck->request_ID); //have it only print once	
+					pthread_mutex_unlock(&mutexArr[tempID-1]);
 					write_account(tempID, tempAmt);
 					//printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));		
 
 				}
 			
 				else if(tempAmt < 0 && (read_account(tempID)+tempAmt >= 0)){ //if the amount we want to add is negative
-					int newBalance = tempAmt + read_account(tempID) ;
-					//printf("%d\n", newBalance);
+					int newBalance = tempAmt +read_account(tempID) ;
+			
+					pthread_mutex_lock(&mutexArr[tempID-1]);
 					fprintf(retFile, "%d OK\n", toCheck->request_ID); //have it only print once	
+					pthread_mutex_unlock(&mutexArr[tempID-1]);
 					write_account(tempID, newBalance);
 					//printf("acc_id: %d, balance: %d\n", tempID, read_account(tempID));	
 				
@@ -366,8 +375,7 @@ void *workerThread(void *arg) {
 		struct timeval time; 
 		gettimeofday(&time, NULL);	
 		toCheck->time_end = time;
-		//print to output file the following: <idCount> BAL <balance>
-		//fprintf(retFile, "%d BAL %d %ld.%06.ld %ld.%06.ld \n", idCount);
+
 			
 		funlockfile(retFile); //unlock the file
 		
@@ -386,10 +394,11 @@ void *workerThread(void *arg) {
 	//free(toCheck);
 
 	fflush(stdin);
-
+	queueList.num_jobs--;
 	pthread_mutex_unlock(&mut);
-	return NULL;
+	//return NULL;
 		
+		}
 }
 
 
