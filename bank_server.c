@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -9,7 +8,7 @@
 #include <pthread.h>
 #include "Bank.h"
 
-#define MAX_ACC_ID 100
+
 
 struct trans{    // structure for a transaction pair
 	int acc_id;  //    account id
@@ -34,7 +33,7 @@ struct queue {
 
 pthread_mutex_t mut; //lock for the queue, and then the accounts,
 pthread_mutex_t mut2; //lock for the queue itself
-pthread_cond_t command; 	
+
 pthread_cond_t worker;
 FILE *retFile;
 int idCount;
@@ -44,7 +43,7 @@ int working = 0;
 struct queue queueList; //the queue for the overall program
 
 int toInt;
-
+int maxAccounts;
 pthread_mutex_t *mutexArr;
 
 
@@ -61,7 +60,6 @@ int main(int argc, char **argv){
 	queueList.tail = NULL;
 	
 	char input [200];
-	 
 
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
@@ -82,7 +80,7 @@ int main(int argc, char **argv){
 	idCount = 1; //keeps track of each individual unique ID per job assignment
 	
 	initialize_accounts(atoi(argv[2])); //initialize the accounts
-	
+	 maxAccounts = atoi(argv[2]);
 	int sizeA, g = 0; //for creating the mutex array
 	
 	sizeA = atoi(argv[2]); //mutex array size
@@ -97,7 +95,7 @@ int main(int argc, char **argv){
 
 	while(1){
 	
-		printf(">");
+		printf(">");	
 		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
 		
@@ -115,7 +113,6 @@ int main(int argc, char **argv){
 			parts[index] = NULL;
 		}
 		
-	
 		if(strcmp(parts[0],  "END") == 0){
 		
 		//finish the rest of the jobs, didn't figure out how to implement this sadly
@@ -123,9 +120,8 @@ int main(int argc, char **argv){
 		return 0; 
 		
 		}
-		
-		
-		else if(strcmp(parts[0], "CHECK") == 0 && atoi(parts[1]) < MAX_ACC_ID){	
+	
+		else if(strcmp(parts[0], "CHECK") == 0 && (atoi(parts[1]) > 0 && atoi(parts[1]) <= maxAccounts)){	
 
 			printf("< ID %d\n", idCount);
 			
@@ -193,8 +189,7 @@ int main(int argc, char **argv){
 					int account = atoi(parts[c-1]); //get the first parameter
 					int amnt = atoi(parts[c]); //get the second parameter
 					
-					
-					if(account < MAX_ACC_ID && account > 0){ //makes sure the account is in range
+					if(account <= maxAccounts && account > 0){ //makes sure the account is in range
 						
 						temp[r].acc_id = account; //assign the account id at the element
 						temp[r].amount = amnt; //assign the amount at the element
@@ -230,7 +225,7 @@ int main(int argc, char **argv){
 		
 		else{
 		
-			printf("Invalid command\n");
+			printf("Invalid command or account doesn't exist.\n");
 		
 		}
 
@@ -251,6 +246,8 @@ while(working == 0){
 
 	pthread_mutex_lock(&mut);
 	struct job* toCheck = queueList.head;
+	
+	
 
 	if(toCheck->type == 0){ //if its a CHECK request
 
@@ -282,7 +279,7 @@ while(working == 0){
 			int tempAmt = toCheck->transactions[z].amount;
 			int tempID = toCheck->transactions[z].acc_id;
 		
-			if(read_account(tempID) + tempAmt < 0  && once == 0){ //if the amount we want to add is negative
+			if(read_account(tempID) + tempAmt < 0  && once == 0 && tempID > 0 && tempID <= maxAccounts){ //if the amount we want to add is negative
 			 
 			 cancel = 1;	
 			 fRID = toCheck->request_ID;
@@ -301,7 +298,7 @@ while(working == 0){
 			printf("%d ISF %d %ld.%06.ld %ld.%06.ld\n", fRID, tID, toCheck->time_arrival, toCheck->time_end); //have it only print once
 		}
 
-		else if(cancel != 1){
+		else if(cancel != 1 && tID > 0 && tID <= maxAccounts){
 			int tempAmt; 
 			int tempID;
 			
@@ -359,13 +356,4 @@ while(working == 0){
 	
 
 }
-
-
-
-	
-
-
-
-
-
 
