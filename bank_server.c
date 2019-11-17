@@ -43,13 +43,13 @@ int working = 0;
 struct queue queueList; //the queue for the overall program
 
 int toInt;
-int maxAccounts;
-pthread_mutex_t *mutexArr;
+int maxAccounts; //max accounts for error checking
+pthread_mutex_t *mutexArr; //array of mutex locks for each account
 
 
 int main(int argc, char **argv){
 	 
-	 if(argc != 4){
+	 if(argc != 4){ //error checking
 		 printf("Not enough arguments\n");
 		 return(0);
 	}
@@ -63,7 +63,7 @@ int main(int argc, char **argv){
 
 	retFile = fopen(argv[3], "w"); //enable write to the file (3rd argument)
 	
-	pthread_t worker_tid[atoi(argv[1])];
+	pthread_t worker_tid[atoi(argv[1])]; //worker_tid array
 	
 	int thread_index[atoi(argv[1])]; //create a thread index for the worker
 	int arg2 = atoi(argv[1]);
@@ -121,6 +121,7 @@ int main(int argc, char **argv){
 		
 		}
 	
+		//making sure the account we're checking is within bounds
 		else if(strcmp(parts[0], "CHECK") == 0 && (atoi(parts[1]) > 0 && atoi(parts[1]) <= maxAccounts)){	
 
 			printf("< ID %d\n", idCount);
@@ -149,14 +150,14 @@ int main(int argc, char **argv){
 				queueList.tail = toAdd;
 				
 			}
-			pthread_mutex_unlock(&mut);
+			pthread_mutex_unlock(&mut); //unlock the queue
 			
 			working = 1; 
 			queueList.num_jobs++;
 			pthread_cond_broadcast(&worker); //broadcast to the worker thread	
 	
 			idCount++;
-			workerThread();
+			workerThread(); 
 				
 							
 		}
@@ -177,7 +178,7 @@ int main(int argc, char **argv){
 				
 				toAdd->request_ID = idCount; //assign the request ID
 				
-				struct timeval time; 
+				struct timeval time;  
 				gettimeofday(&time, NULL);
 				toAdd->time_arrival = time; //assign the arrival time
 			
@@ -220,7 +221,7 @@ int main(int argc, char **argv){
 			
 				queueList.num_jobs++;
 				working = 1; 
-				pthread_cond_broadcast(&worker);
+				//pthread_cond_broadcast(&worker); for some reason commenting this out fixes my issues on mac, not sure about lab PCs
 
 				workerThread();
 				free(temp); 
@@ -250,7 +251,7 @@ while(working == 0){ //wait to receive a job
 }
 
 	pthread_mutex_lock(&mut); 
-	struct job* toCheck = queueList.head;
+	struct job* toCheck = queueList.head; 
 	
 	if(toCheck->type == 0){ //if its a CHECK request
 
@@ -294,7 +295,7 @@ while(working == 0){ //wait to receive a job
 		
 		if(once == 1){ //reject the request
 			struct timeval time; 
-			gettimeofday(&time, NULL);	
+			gettimeofday(&time, NULL);	//timestamp the request
 			toCheck->time_end = time;
 			fprintf(retFile, "%d ISF %d %ld.%06.ld %ld.%06.ld\n", fRID, tID, toCheck->time_arrival, toCheck->time_end); //have it only print once
 			
@@ -309,7 +310,6 @@ while(working == 0){ //wait to receive a job
 				int tempID = toCheck->transactions[z].acc_id;
 		
 				if(tempAmt > 0){ //if the amount we want to add is positive
-
 					write_account(tempID, tempAmt);	
 
 				}
@@ -322,7 +322,7 @@ while(working == 0){ //wait to receive a job
 			
 			}
 			struct timeval time; 
-			gettimeofday(&time, NULL);	
+			gettimeofday(&time, NULL);	//timestamp the end time
 			toCheck->time_end = time;
 			
 			pthread_mutex_lock(&mutexArr[tempID-1]);
@@ -352,7 +352,7 @@ while(working == 0){ //wait to receive a job
 	
 	working = 0;
 	fflush(stdin);
-	queueList.num_jobs--;
+	queueList.num_jobs--; //decrement the number of jobs in the queue
 	
 	pthread_mutex_unlock(&mut);
 	
