@@ -125,10 +125,10 @@ int main(int argc, char **argv){
 
 			printf("< ID %d\n", idCount);
 			
-			struct timeval time; 
+			struct timeval time; //timestamp
 			gettimeofday(&time, NULL);
 	
-			struct job *toAdd;
+			struct job *toAdd; //allocating memory
 			toAdd = (struct job*) malloc(sizeof(struct job)); 
 			
 			gettimeofday(&time, NULL);
@@ -137,11 +137,11 @@ int main(int argc, char **argv){
 			toAdd->request_ID = idCount; //provide it's request ID
 			toInt = atoi(parts[1]); //conver the provided string to an Integer for account lookup
 			toAdd->check_acc_ID =read_account(toInt); //add the account ID to job
-			toAdd->next = NULL; 	
+			toAdd->next = NULL; //the next job should be null
 			toAdd->type = 0;
 
-			
-			if(queueList.num_jobs == 0){
+			pthread_mutex_lock(&mut); //lock the queue
+			if(queueList.num_jobs == 0){ //update the queue
 				queueList.head = queueList.tail = toAdd;
 			}
 			else{
@@ -149,9 +149,11 @@ int main(int argc, char **argv){
 				queueList.tail = toAdd;
 				
 			}
+			pthread_mutex_unlock(&mut);
+			
 			working = 1; 
 			queueList.num_jobs++;
-			pthread_cond_broadcast(&worker);	
+			pthread_cond_broadcast(&worker); //broadcast to the worker thread	
 	
 			idCount++;
 			workerThread();
@@ -161,7 +163,7 @@ int main(int argc, char **argv){
 		
 		else if (strcmp(parts[0], "TRANS") == 0 ){
 	
-			if((index-1) % 2  != 0){
+			if((index-1) % 2 != 0){ //error checking
 
 				printf("Odd number of arguments, rejecting request\n");
 			}
@@ -173,7 +175,7 @@ int main(int argc, char **argv){
 				toAdd = (struct job*) malloc(sizeof(struct job)); 
 				//malloc toAdd and the transaction
 				
-				toAdd->request_ID = idCount;
+				toAdd->request_ID = idCount; //assign the request ID
 				
 				struct timeval time; 
 				gettimeofday(&time, NULL);
@@ -181,7 +183,7 @@ int main(int argc, char **argv){
 			
 				int c, r = 0, check = 0, p = 0; 
 				
-				struct trans *temp = toAdd->transactions; 
+				struct trans *temp = toAdd->transactions; //allocate memory
 				temp = (struct trans*) malloc(sizeof(struct trans) * ((index-1))); 
 				
 				for(c = 2; c <= index-1; c += 2){
@@ -202,6 +204,8 @@ int main(int argc, char **argv){
 				toAdd->transactions = temp;
 				toAdd->num_trans = r; //add the number of accounts in the transaction
 				
+				
+				pthread_mutex_lock(&mut); //lock the queue
 				if(queueList.num_jobs == 0){
 					queueList.head = queueList.tail = toAdd;
 				}
@@ -210,15 +214,16 @@ int main(int argc, char **argv){
 					queueList.tail = toAdd;
 				
 				}
+				pthread_mutex_unlock(&mut);
 				
 				idCount++;
-				
+			
 				queueList.num_jobs++;
 				working = 1; 
 				pthread_cond_broadcast(&worker);
 
 				workerThread();
-					
+				free(temp); 
 				}	
 
 			}
@@ -239,27 +244,24 @@ int main(int argc, char **argv){
 
 void *workerThread(void *arg) {
 
-while(working == 0){
+while(working == 0){ //wait to receive a job
 	pthread_cond_wait(&worker, &mut);
 
 }
 
-	pthread_mutex_lock(&mut);
+	pthread_mutex_lock(&mut); 
 	struct job* toCheck = queueList.head;
 	
-	
-
 	if(toCheck->type == 0){ //if its a CHECK request
 
 		flockfile(retFile); //lock the file
 		
-		struct timeval time; 
+		struct timeval time;  //timestamp
 		gettimeofday(&time, NULL);	
 		toCheck->time_end = time;
-		//print to output file the following: <idCount> BAL <balance>
+		//print balance
 		fprintf(retFile, "%d BAL %d %ld.%06.ld %ld.%06.ld \n", toCheck->request_ID, read_account(toInt), toCheck->time_arrival, toCheck->time_end);
-		printf("%d BAL %d %ld.%06.ld %ld.%06.ld \n", toCheck->request_ID, read_account(toInt), toCheck->time_arrival, toCheck->time_end);
-			
+	
 		funlockfile(retFile); //unlock the file	
 
 	}
@@ -275,11 +277,11 @@ while(working == 0){
 		int z = 0; 
 		int fRID, tID, once = 0; 
 		
-		for(z = 0; z < toCheck->num_trans; z++){
+		for(z = 0; z < toCheck->num_trans; z++){ //this for loop verifies that every transaction will be valid, otherwise we're rejecting the entire request
 			int tempAmt = toCheck->transactions[z].amount;
 			int tempID = toCheck->transactions[z].acc_id;
 		
-			if(read_account(tempID) + tempAmt < 0  && once == 0 && tempID > 0 && tempID <= maxAccounts){ //if the amount we want to add is negative
+			if(read_account(tempID) + tempAmt < 0){ //if the amount we want to add is negative
 			 
 			 cancel = 1;	
 			 fRID = toCheck->request_ID;
@@ -290,15 +292,15 @@ while(working == 0){
 			
 		}
 		
-		if(once == 1){
+		if(once == 1){ //reject the request
 			struct timeval time; 
 			gettimeofday(&time, NULL);	
 			toCheck->time_end = time;
 			fprintf(retFile, "%d ISF %d %ld.%06.ld %ld.%06.ld\n", fRID, tID, toCheck->time_arrival, toCheck->time_end); //have it only print once
-			printf("%d ISF %d %ld.%06.ld %ld.%06.ld\n", fRID, tID, toCheck->time_arrival, toCheck->time_end); //have it only print once
+			
 		}
 
-		else if(cancel != 1 && tID > 0 && tID <= maxAccounts){
+		else if(cancel != 1 ){ //accept the request as long as the accounts
 			int tempAmt; 
 			int tempID;
 			
