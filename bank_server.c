@@ -214,11 +214,11 @@ int main(int argc, char **argv){
 				}
 				pthread_mutex_unlock(&mut2);
 				
-				idCount++;
+				idCount++; //update ID number
 			
-				queueList.num_jobs++;
+				queueList.num_jobs++; //update number of jobs
 				working = 1; 
-				pthread_cond_broadcast(&worker); //for some reason commenting this out fixes my issues on mac, not sure about lab PCs
+				pthread_cond_broadcast(&worker); //broadcast to worker thread
 
 				free(temp); 
 				}	
