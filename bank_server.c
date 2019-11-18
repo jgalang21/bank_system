@@ -8,8 +8,6 @@
 #include <pthread.h>
 #include "Bank.h"
 
-
-
 struct trans{    // structure for a transaction pair
 	int acc_id;  //    account id
 	int amount;  //    amount to be added, can be positive or negative
@@ -91,10 +89,12 @@ int main(int argc, char **argv){
 	}
 	
 	pthread_mutex_init(&mut, NULL);
+	pthread_mutex_init(&mut2, NULL);
 	pthread_cond_init(&worker, NULL);
 
 	while(1){
 	
+		//printf("queue size: %d \n", queueList.num_jobs);
 		printf(">");	
 		
 		fgets(input, 200, stdin); //stdin takes user input until user presses enter
@@ -118,7 +118,6 @@ int main(int argc, char **argv){
 		//finish the rest of the jobs, didn't figure out how to implement this sadly
 		
 		return 0; 
-		
 		}
 	
 		//making sure the account we're checking is within bounds
@@ -141,7 +140,7 @@ int main(int argc, char **argv){
 			toAdd->next = NULL; //the next job should be null
 			toAdd->type = 0;
 
-			pthread_mutex_lock(&mut); //lock the queue
+			pthread_mutex_lock(&mut2); //lock the queue
 			if(queueList.num_jobs == 0){ //update the queue
 				queueList.head = queueList.tail = toAdd;
 			}
@@ -150,15 +149,13 @@ int main(int argc, char **argv){
 				queueList.tail = toAdd;
 				
 			}
-			pthread_mutex_unlock(&mut); //unlock the queue
+			pthread_mutex_unlock(&mut2); //unlock the queue
 			
 			working = 1; 
 			queueList.num_jobs++;
 			pthread_cond_broadcast(&worker); //broadcast to the worker thread	
 	
-			idCount++;
-			workerThread(); 
-				
+			idCount++;				
 							
 		}
 		
@@ -186,7 +183,7 @@ int main(int argc, char **argv){
 				
 				struct trans *temp = toAdd->transactions; //allocate memory
 				temp = (struct trans*) malloc(sizeof(struct trans) * ((index-1))); 
-				
+			
 				for(c = 2; c <= index-1; c += 2){
 				
 					int account = atoi(parts[c-1]); //get the first parameter
@@ -206,7 +203,7 @@ int main(int argc, char **argv){
 				toAdd->num_trans = r; //add the number of accounts in the transaction
 				
 				
-				pthread_mutex_lock(&mut); //lock the queue
+				pthread_mutex_lock(&mut2); //lock the queue
 				if(queueList.num_jobs == 0){
 					queueList.head = queueList.tail = toAdd;
 				}
@@ -215,15 +212,14 @@ int main(int argc, char **argv){
 					queueList.tail = toAdd;
 				
 				}
-				pthread_mutex_unlock(&mut);
+				pthread_mutex_unlock(&mut2);
 				
 				idCount++;
 			
 				queueList.num_jobs++;
 				working = 1; 
-				//pthread_cond_broadcast(&worker); for some reason commenting this out fixes my issues on mac, not sure about lab PCs
+				pthread_cond_broadcast(&worker); //for some reason commenting this out fixes my issues on mac, not sure about lab PCs
 
-				workerThread();
 				free(temp); 
 				}	
 
@@ -245,24 +241,27 @@ int main(int argc, char **argv){
 
 void *workerThread(void *arg) {
 
+while(1){
+		pthread_mutex_lock(&mut); 
 while(working == 0){ //wait to receive a job
 	pthread_cond_wait(&worker, &mut);
-
 }
-
-	pthread_mutex_lock(&mut); 
+	pthread_mutex_lock(&mut2);
 	struct job* toCheck = queueList.head; 
-	
-	if(toCheck->type == 0){ //if its a CHECK request
+	pthread_mutex_unlock(&mut2);
+		if(toCheck->type == 0){ //if its a CHECK request
 
-		flockfile(retFile); //lock the file
+		
 		
 		struct timeval time;  //timestamp
 		gettimeofday(&time, NULL);	
 		toCheck->time_end = time;
 		//print balance
+
+		flockfile(retFile); //lock the file
+		pthread_mutex_lock(&mutexArr[toCheck->check_acc_ID]);
 		fprintf(retFile, "%d BAL %d %ld.%06.ld %ld.%06.ld \n", toCheck->request_ID, read_account(toInt), toCheck->time_arrival, toCheck->time_end);
-	
+		pthread_mutex_unlock(&mutexArr[toCheck->check_acc_ID]);
 		funlockfile(retFile); //unlock the file	
 
 	}
@@ -271,13 +270,13 @@ while(working == 0){ //wait to receive a job
 
 		int isVoid = 0; //boolean that checks to make sure that all given accounts have sufficient balance.
 
-		flockfile(retFile); //lock the file
+		
 		
 		int cancel = 0; //check if we need to cancel the TRANS due to an insufficient balance
 		
 		int z = 0; 
 		int fRID, tID, once = 0; 
-		
+	
 		for(z = 0; z < toCheck->num_trans; z++){ //this for loop verifies that every transaction will be valid, otherwise we're rejecting the entire request
 			int tempAmt = toCheck->transactions[z].amount;
 			int tempID = toCheck->transactions[z].acc_id;
@@ -297,7 +296,12 @@ while(working == 0){ //wait to receive a job
 			struct timeval time; 
 			gettimeofday(&time, NULL);	//timestamp the request
 			toCheck->time_end = time;
+			flockfile(retFile); //lock the file
+			usleep(10000);
+			pthread_mutex_lock(&mutexArr[toCheck->check_acc_ID]);
 			fprintf(retFile, "%d ISF %d %ld.%06.ld %ld.%06.ld\n", fRID, tID, toCheck->time_arrival, toCheck->time_end); //have it only print once
+			pthread_mutex_unlock(&mutexArr[toCheck->check_acc_ID]);
+			funlockfile(retFile); //lock the file
 			
 		}
 
@@ -324,22 +328,25 @@ while(working == 0){ //wait to receive a job
 			struct timeval time; 
 			gettimeofday(&time, NULL);	//timestamp the end time
 			toCheck->time_end = time;
-			
-			pthread_mutex_lock(&mutexArr[tempID-1]);
+			flockfile(retFile); //lock the file
+			usleep(10000);
+			pthread_mutex_lock(&mutexArr[toCheck->check_acc_ID]);
 			fprintf(retFile, "%d OK %ld.%06.ld %ld.%06.ld\n", toCheck->request_ID, toCheck->time_arrival, toCheck->time_end); //have it only print once
-			pthread_mutex_unlock(&mutexArr[tempID-1]);
+			
+			pthread_mutex_unlock(&mutexArr[toCheck->check_acc_ID]);
+		
+			funlockfile(retFile); //lock the file
 			
 		}
 
 		struct timeval time; 
 		gettimeofday(&time, NULL);	
 		toCheck->time_end = time;
-	
-		funlockfile(retFile); //unlock the file
 		
 	}
 
 	//updating the queue here
+	pthread_mutex_lock(&mut2); 
 	if(queueList.head->next != NULL){
 		queueList.head = queueList.head->next;
 	}
@@ -347,15 +354,15 @@ while(working == 0){ //wait to receive a job
 	if(queueList.tail->next != NULL){
 		queueList.tail = queueList.tail->next;
 	}
-
-	free(toCheck);
-	
-	working = 0;
-	fflush(stdin);
 	queueList.num_jobs--; //decrement the number of jobs in the queue
+	pthread_mutex_unlock(&mut2); 
+	
+	fflush(stdin);
 	
 	pthread_mutex_unlock(&mut);
-	
+
+	}
+
 
 }
 
